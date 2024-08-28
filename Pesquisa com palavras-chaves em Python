@@ -1,0 +1,72 @@
+import requests
+import pandas as pd
+
+def search_crossref(keyword1, keyword2=None, keyword3=None):
+    # Construir a query de pesquisa
+    query = keyword1
+    if keyword2:
+        query += f" {keyword2}"
+    if keyword3:
+        query += f" {keyword3}"
+
+    url = "https://api.crossref.org/works"
+    params = {
+        "query": query,
+        "rows": 100  # Número de resultados a serem retornados
+    }
+
+    # Fazer a requisição para a API do CrossRef
+    response = requests.get(url, params=params)
+
+    if response.status_code == 200:
+        data = response.json()
+        items = data.get("message", {}).get("items", [])
+
+        # Listas para armazenar os dados
+        titles = []
+        authors = []
+        years = []
+        dois = []
+        urls = []
+
+        # Iterar sobre os resultados da pesquisa
+        for item in items:
+            titles.append(item.get("title", ["N/A"])[0])
+            author_names = ", ".join([author.get("given", "") + " " + author.get("family", "") for author in item.get("author", [])])
+            authors.append(author_names if author_names else "N/A")
+            years.append(item.get("published-print", {}).get("date-parts", [[None]])[0][0])
+            dois.append(item.get("DOI", "N/A"))
+            urls.append(item.get("URL", "N/A"))
+
+        # Criar um DataFrame com os dados
+        df = pd.DataFrame({
+            "Título": titles,
+            "Autores": authors,
+            "Ano": years,
+            "DOI": dois,
+            "URL": urls
+        })
+
+        return df
+    else:
+        print("Erro ao acessar a API do CrossRef.")
+        return pd.DataFrame()
+
+# Solicitar as palavras-chave ao usuário
+keyword1 = input("Digite a primeira palavra-chave: ")
+keyword2 = input("Digite a segunda palavra-chave (opcional): ")
+keyword3 = input("Digite a terceira palavra-chave (opcional): ")
+
+# Realizar a pesquisa e obter os resultados em formato de tabela
+resultado_df = search_crossref(keyword1, keyword2, keyword3)
+
+# Exibir a tabela de resultados
+if not resultado_df.empty:
+    print("\nResultados da Pesquisa:")
+    print(resultado_df)
+
+    # Salvar os resultados em um arquivo CSV, se desejado
+    resultado_df.to_csv('resultado_pesquisa.csv', index=False)
+    print("\nResultados salvos em 'resultado_pesquisa.csv'.")
+else:
+    print("Nenhum resultado encontrado.")
